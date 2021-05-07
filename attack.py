@@ -9,6 +9,9 @@ import numpy as np
 import tensorflow as tf
 import argparse
 from shutil import copyfile
+import time 
+from difflib import SequenceMatcher
+
 
 import scipy.io.wavfile as wav
 
@@ -195,7 +198,10 @@ class Attack:
 
                     # Here we print the strings that are recognized.
                     res = ["".join(toks[int(x)] for x in y).replace("-","") for y in res]
-                    print("\n".join(res))
+                    print(edit_distance("\n".join(res),seq1))
+		
+
+
                     
                     # And here we print the argmax of the alignment.
                     res2 = np.argmax(logits,axis=2).T
@@ -209,7 +215,7 @@ class Attack:
                 feed_dict = {self.new_input: mp3ed}
             else:
                 feed_dict = {}
-                
+          
             # Actually do the optimization ste
             d, el, cl, l, logits, new_input, _ = sess.run((self.delta, self.expanded_loss,
                                                            self.ctcloss, self.loss,
@@ -260,6 +266,8 @@ class Attack:
     
     
 def main():
+
+
     """
     Do the attack here.
 
@@ -308,6 +316,7 @@ def main():
         finetune = []
         audios = []
         lengths = []
+	
 
         if args.out is None:
             assert args.outprefix is not None
@@ -363,5 +372,59 @@ def main():
                           np.array(np.clip(np.round(deltas[i][:lengths[i]]),
                                            -2**15, 2**15-1),dtype=np.int16))
                 print("Final distortion", np.max(np.abs(deltas[i][:lengths[i]]-audios[i][:lengths[i]])))
+start_time = time.time()
+
+def levenshtein(seq1, seq2):
+    size_x = len(seq1) + 1
+    size_y = len(seq2) + 1
+    matrix = np.zeros ((size_x, size_y))
+    for x in range(size_x):
+        matrix [x, 0] = x
+    for y in range(size_y):
+        matrix [0, y] = y
+
+    for x in range(1, size_x):
+        for y in range(1, size_y):
+            if seq1[x-1] == seq2[y-1]:
+                matrix [x,y] = min(
+                    matrix[x-1, y] + 1,
+                    matrix[x-1, y-1],
+                    matrix[x, y-1] + 1
+                )
+            else:
+                matrix [x,y] = min(
+                    matrix[x-1,y] + 1,
+                    matrix[x-1,y-1] + 1,
+                    matrix[x,y-1] + 1
+                )
+    print (matrix)
+    return (matrix[size_x - 1, size_y - 1])
+seq1 = input(" \n \n Please select a phrase to be used as Target \n enter word :\n " )
+
+def edit_distance(string1, string2):
+   
+
+    if len(string1) > len(string2):
+        difference = len(string1) - len(string2)
+        string1[:difference]
+
+    elif len(string2) > len(string1):
+        difference = len(string2) - len(string1)
+        string2[:difference]
+
+    else:
+        difference = 0
+
+   
+    return difference
 
 main()
+
+
+levenshtein(seq1, res)
+
+print ("difference between strings : " )
+print(edit_distance(seq1, res))
+
+print ("total time taken to run attack was  %s seconds " % (time.time() - start_time))
+
